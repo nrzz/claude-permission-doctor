@@ -60,14 +60,14 @@ const PLAIN_CMDLETS = new Set([
 // PowerShell takes either kind of slash in a path; resolve them the same way on every system
 const slashes = (a) => a.split(String.fromCharCode(92)).join("/");
 
-export function readOnlyPs(words, { cwd, home, dirs }) {
+export function readOnlyPs(words, { cwd, home, dirs, platform }) {
   const name = canonicalName(words[0] || "");
   const args = words.slice(1);
-  if (name === "git") return readOnly(words, { cwd, home, dirs });
+  if (name === "git") return readOnly(words, { cwd, home, dirs, platform });
   if (PLAIN_CMDLETS.has(name)) return { ok: true, why: `${words[0]} only reads` };
   if (FILE_CMDLETS.has(name)) {
-    const bad = args.find((a) => !a.startsWith("-") && unsafePath(a));
-    if (bad !== undefined) return { ok: false, why: `${words[0]} ${bad}: the path ${unsafePath(bad)}`, unsafe: bad };
+    const bad = args.find((a) => !a.startsWith("-") && unsafePath(a, platform));
+    if (bad !== undefined) return { ok: false, why: `${words[0]} ${bad}: the path ${unsafePath(bad, platform)}`, unsafe: bad };
     for (const a of args) {
       if (a.startsWith("-") || !leavesFolder(a)) continue;
       const abs = resolveArg(slashes(a), cwd, home);

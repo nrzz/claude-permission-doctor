@@ -81,14 +81,22 @@ test("readOnly: a file argument outside the working folders makes a reading comm
 
 test("readOnly: a .. after a directory name, or a // inside a path, is asked about whatever the rules say", () => {
   for (const line of ["ls sub/..", "ls ./sub/..", "cat sub/../a", "cd sub/..", "head -1 a//b", "grep x sub/../a", "find sub/.. -name x", "find . -path */../*", "sed -n 1p sub/../a", "rm sub/../x", "cp a sub//b", "ls ./sub/./..", "ls ../work/../work", "cat .//a", "ls ..///work"]) {
-    const r = ro(line);
+    const r = ro(line, { ...ctx, platform: "win32" });
     assert.equal(r.ok, false, line);
     assert.notEqual(r.unsafe, undefined, line);
     assert.match(r.why, /whatever the rules say/, line);
   }
   for (const line of ["ls ../work", "ls ./../work", "ls sub/", "ls sub//", "ls ./sub/", "cat ./a", "echo sub/../x", "git log -- sub/../a", "grep sub/../x a.txt", "cd sub//", "ls foo..bar", "ls ..a", "ls ...", "echo http://x", "ls sub/./x"]) {
-    assert.equal(ro(line).unsafe, undefined, line);
+    assert.equal(ro(line, { ...ctx, platform: "win32" }).unsafe, undefined, line);
   }
+});
+
+test("readOnly: the // check is for Windows; the .. check is for every system", () => {
+  const linux = { ...ctx, platform: "linux" };
+  assert.equal(ro("cat sub//a", linux).unsafe, undefined);
+  assert.equal(ro("cat sub//a", linux).ok, true);
+  assert.notEqual(ro("cat sub/../a", linux).unsafe, undefined);
+  assert.notEqual(ro("cat sub//a", { ...ctx, platform: "win32" }).unsafe, undefined);
 });
 
 test("readOnly: a path that a Read allow rule covers counts as inside", () => {

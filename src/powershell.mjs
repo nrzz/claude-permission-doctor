@@ -35,13 +35,14 @@ const isNameChar = (c) => c !== undefined && /[A-Za-z0-9_:?]/.test(c);
  * Read `src` as PowerShell. Returns the same shape as parseBash: { ok, problem, cmds, issues, seps },
  * where cmds are { text, argv, assigns, redirs, ctx, start, end, src }.
  */
-export function parsePowerShell(src) {
-  return new PsReader(String(src)).run();
+export function parsePowerShell(src, { unc = true } = {}) {
+  return new PsReader(String(src), unc).run();
 }
 
 class PsReader {
-  constructor(src) {
+  constructor(src, unc = true) {
     this.src = src;
+    this.unc = unc;
     this.i = 0;
     this.cmds = [];
     this.issues = [];
@@ -52,7 +53,7 @@ class PsReader {
   }
 
   run() {
-    if (UNC.test(this.src)) this.issue("unc-path");
+    if (this.unc && UNC.test(this.src)) this.issue("unc-path");
     try {
       this.statements({ ctx: [], close: null, top: true });
     } catch (e) {

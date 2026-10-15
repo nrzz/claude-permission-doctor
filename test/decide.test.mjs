@@ -8,10 +8,10 @@ import { renderWhy } from "../src/report.mjs";
 
 const perms = (p) => ({ permissions: p });
 
-function why(spec, input, { tool = "Bash", files = {} } = {}) {
+function why(spec, input, { tool = "Bash", files = {}, platform } = {}) {
   const s = sandbox({ ...files, ...(spec && !spec.user && !spec.project && !spec.local ? { user: perms(spec) } : spec ? { user: spec.user && perms(spec.user), project: spec.project && perms(spec.project), local: spec.local && perms(spec.local) } : {}) });
   const shell = tool === "Bash" || tool === "PowerShell";
-  const m = buildWhy({ tool, command: shell ? input : undefined, target: shell ? undefined : input, project: s.proj, cwd: s.proj, home: s.home, env: s.env(), managed: s.managedDir });
+  const m = buildWhy({ tool, command: shell ? input : undefined, target: shell ? undefined : input, project: s.proj, cwd: s.proj, home: s.home, env: s.env(), managed: s.managedDir, platform });
   return { m, d: m.decision, s };
 }
 
@@ -145,7 +145,7 @@ test("a command that reaches outside the working folders: the fix is a folder or
 
 test("a path with a .. after a directory name or a // inside: asked about whatever the rules say", () => {
   for (const command of ["cat sub/../a.txt", "head sub//a.txt"]) {
-    const { d } = why({ allow: ["Bash(cat *)", "Bash(head *)"] }, command);
+    const { d } = why({ allow: ["Bash(cat *)", "Bash(head *)"] }, command, { platform: "win32" });
     assert.equal(d.verdict, "ask", command);
     assert.equal(d.kind, "path");
     assert.equal(d.fix.rule, null);
@@ -244,7 +244,8 @@ test("PowerShell: aliases, case, and the rule that matched", () => {
 
 test("PowerShell: a variable or a // is a reason Claude Code cannot check the line", () => {
   assert.deepEqual(why({ allow: ["PowerShell(mytool *)"] }, "mytool $true", { tool: "PowerShell" }).d.issues.map((i) => i.kind), ["variable"]);
-  assert.deepEqual(why({ allow: ["PowerShell(mytool *)"] }, "mytool a//b", { tool: "PowerShell" }).d.issues.map((i) => i.kind), ["unc-path"]);
+  assert.deepEqual(why({ allow: ["PowerShell(mytool *)"] }, "mytool a//b", { tool: "PowerShell", platform: "win32" }).d.issues.map((i) => i.kind), ["unc-path"]);
+  assert.deepEqual(why({ allow: ["PowerShell(mytool *)"] }, "mytool a//b", { tool: "PowerShell", platform: "linux" }).d.issues, [], "a // is only a network path on Windows");
 });
 
 test("Bash: ANSI-C and locale quotes are reasons Claude Code cannot check the line", () => {

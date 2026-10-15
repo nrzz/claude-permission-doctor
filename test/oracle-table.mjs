@@ -10,6 +10,7 @@
 //   "deny"   a deny rule refuses it
 // Every row that is here was run against Claude Code 2.1.295; a row whose result surprised us says why in `note`.
 //
+// A row's `expect` is what Windows does; where Linux and macOS differ the row also has `posix`.
 // A row may carry `platform` (the oracle runs it only there: the PowerShell tool is Windows-only here) and
 // `engine` (test/table.test.mjs runs it only on that system, because how Windows reads a path is its subject).
 //
@@ -63,12 +64,14 @@ function add(group, tool, input, spec, expect, extra = {}) {
   rows.push({ id: `${group}-${String(++count).padStart(3, "0")}`, group, tool, input, settings: settingsFor(spec), expect, files: { ...DEFAULT_FILES, ...(files || {}) }, ...rest });
 }
 const bash = (group, spec, command, expect, extra) => add(group, "Bash", { command }, spec, expect, extra);
+// the // and double-backslash checks are Windows-only, so the engine is asked about those rows on Windows only
+const unc = (command) => (command.includes("//") || command.includes(String.fromCharCode(92, 92)) ? "win32" : undefined);
 const ps = (group, spec, command, expect, extra) => add(group, "PowerShell", { command }, spec, expect, { platform: "win32", ...extra });
 const read = (group, spec, file, expect, extra) => add(group, "Read", { file_path: file }, spec, expect, extra);
 const edit = (group, spec, file, expect, extra) => add(group, "Edit", { file_path: file, old_string: "hello", new_string: "hullo" }, spec, expect, extra);
 const write = (group, spec, file, expect, extra) => add(group, "Write", { file_path: file, content: "x" }, spec, expect, extra);
 const fetch = (group, spec, url, expect, extra) => add(group, "WebFetch", { url, prompt: "p" }, spec, expect, extra);
-const each = (group, spec, list, extra) => { for (const [command, expect] of list) bash(group, spec, command, expect, extra); };
+const each = (group, spec, list, extra) => { for (const [command, expect, posix] of list) bash(group, spec, command, expect, posix ? { ...extra, posix } : extra); };
 
 const MT = "allow Bash(mytool *)";
 
@@ -140,7 +143,7 @@ each("env-mixed", MT, [["NODE_ENV=test CI=1 mytool a", "allow"], ["NODE_ENV=test
 // --- substitutions, subshells, variables: allow rules do not reach inside ---------------------------------------
 each("cannot-check", ["allow Bash(mytool *)", "allow Bash(echo *)"], [
   ["echo $(mytool a)", "ask"], ["echo `mytool a`", "ask"], ["(mytool a)", "ask"], ["{ mytool a; }", "ask"], ["echo <(mytool a)", "ask"],
-  ["mytool a $(echo b)", "ask"], ["mytool \"$(echo b)\"", "ask"], ["mytool $HOME", "allow"], ["mytool $HOME/x", "allow"], ["mytool \"$HOME/x\"", "allow"], ["mytool $FOO", "ask"], ["mytool $PWD", "ask"], ["mytool $USER", "ask"], ["mytool $1", "ask"], ["mytool \"a $FOO\"", "ask"], ["mytool '$FOO'", "allow"], ["mytool ${HOME}", "ask"], ["echo $((1 + 2))", "allow"],
+  ["mytool a $(echo b)", "ask"], ["mytool \"$(echo b)\"", "ask"], ["mytool $HOME", "allow"], ["mytool $HOME/x", "allow"], ["mytool \"$HOME/x\"", "allow"], ["mytool $FOO", "ask"], ["mytool $PWD", "ask"], ["mytool $USER", "ask"], ["mytool $1", "ask"], ["mytool \"a $FOO\"", "ask"], ["mytool '$FOO'", "allow"], ["mytool ${FOO}", "ask"], ["mytool ${FOO:-x}", "ask"], ["echo $((1 + 2))", "allow"],
   ["mytool a{b,c}", "ask"], ["mytool $'x y'", "ask"], ["mytool \"a\" $'b'", "ask"], ["echo $'x'", "ask"], ["echo $\"x\"", "ask"], ["echo \"$'x'\"", "allow"], ["mytool 'a'\"b\"", "allow"], ["echo hi", "allow"],
 ]);
 bash("compound", MT, "mytool a |", "allow", { note: "a trailing | is not a parse failure for Claude Code, a trailing && is" });
@@ -221,20 +224,20 @@ each("traversal-rule", ["allow Bash(cat *)", "allow Bash(head *)", "allow Bash(c
 ], { note: "an allow rule does not help: the path is asked about; mytool and python3 are not file commands" });
 each("traversal-other-rules", "allow Bash", [["cat sub/../a.txt", "allow"]], { note: "a bare Bash allow rule skips the check" });
 each("traversal-other-rules", "allow Bash(cat sub/../a.txt)", [["cat sub/../a.txt", "ask"]], { note: "a rule that spells out the whole line does not skip it" });
-each("traversal-other-rules", "deny Read(./a.txt)", [["cat a.txt", "deny"], ["cat sub/../a.txt", "ask"]], { note: "the path is asked about before the deny rule gets to judge it" });
+each("traversal-other-rules", "deny Read(./a.txt)", [["cat a.txt", "deny"], ["cat sub/../a.txt", "ask", "deny"]], { note: "the path is asked about before the deny rule gets to judge it" });
 each("traversal-other-rules", "allow Read(./sub/**)", [["ls sub/..", "ask"]]);
-each("traversal-redirect", ["allow Edit(./x.txt)", "allow Edit(./sub/x.txt)"], [["echo hi > sub/../x.txt", "ask"], ["echo hi > sub//x.txt", "ask"], ["echo hi > sub/./x.txt", "allow"], ["echo hi > sub/x.txt", "allow"]]);
+each("traversal-redirect", ["allow Edit(./x.txt)", "allow Edit(./sub/x.txt)"], [["echo hi > sub/../x.txt", "ask"], ["echo hi > sub//x.txt", "ask", "allow"], ["echo hi > sub/./x.txt", "allow"], ["echo hi > sub/x.txt", "allow"]]);
 each("double-slash", null, [
-  ["ls .//sub", "ask"], ["ls sub///x", "ask"], ["ls //sub", "ask"], ["cat sub//a.txt", "ask"], ["cd sub//x", "ask"], ["ls \"a b//c\"", "ask"], ["ls ..///work", "ask"],
-  ["cat .//a.txt", "ask"], ["ls sub/\\/x", "ask"], ["echo a//b", "ask"], ["echo \"a//b\"", "ask"], ["echo //x", "ask"], ["echo \"x\"//y", "ask"], ["printf '%s' a//b", "ask"],
-  ["test -f a//b", "ask"], ["grep \"//\" a.txt", "ask"], ["grep -rn \"//\" .", "ask"], ["git log --format=%h//x", "ask"], ["git log --since=1//2", "ask"],
-  ["find . -name \"*//*\"", "ask"], ["echo hi | grep \"//\"", "ask"], ["echo \"see https://x.com//a\"", "ask"], ["echo a//b > /dev/null", "ask"],
+  ["ls .//sub", "ask", "allow"], ["ls sub///x", "ask", "allow"], ["ls //sub", "ask"], ["cat sub//a.txt", "ask", "allow"], ["cd sub//x", "ask", "allow"], ["ls \"a b//c\"", "ask", "allow"], ["ls ..///work", "ask", "allow"],
+  ["cat .//a.txt", "ask", "allow"], ["ls sub/\\/x", "ask", "allow"], ["echo a//b", "ask", "allow"], ["echo \"a//b\"", "ask", "allow"], ["echo //x", "ask", "allow"], ["echo \"x\"//y", "ask", "allow"], ["printf '%s' a//b", "ask", "allow"],
+  ["test -f a//b", "ask", "allow"], ["grep \"//\" a.txt", "ask", "allow"], ["grep -rn \"//\" .", "ask", "allow"], ["git log --format=%h//x", "ask", "allow"], ["git log --since=1//2", "ask", "allow"],
+  ["find . -name \"*//*\"", "ask", "allow"], ["echo hi | grep \"//\"", "ask", "allow"], ["echo \"see https://x.com//a\"", "ask", "allow"], ["echo a//b > /dev/null", "ask", "allow"],
   ["ls sub//", "allow"], ["ls sub/", "allow"], ["ls ./sub/", "allow"], ["cd sub//", "allow"], ["cd ./sub/", "allow"], ["wc -l sub//", "allow"], ["echo sub//", "allow"],
   ["echo http://x.com", "allow"], ["echo \"http://x.com\"", "allow"], ["jq '.a // 1' a.json", "allow"], ["echo \"a // b\"", "allow"], ["grep -rn 'https://x.com' .", "allow"],
   ["ls a//", "allow"], ["ls ././sub", "allow"], ["cat ./a.txt", "allow"],
 ], { note: "a // inside a path could be a network share: file commands ask whatever the rules say, other read-only commands stop counting as read-only" });
 each("double-slash-rule", ["allow Bash(cat *)", "allow Bash(ls *)", "allow Bash(cd *)", "allow Bash(rm *)", "allow Bash(cp *)", "allow Bash(echo *)", "allow Bash(git log *)", "allow Bash(grep *)", "allow Bash(mytool *)"], [
-  ["cat sub//a.txt", "ask"], ["ls sub//x", "ask"], ["cd sub//x", "ask"], ["rm sub//nosuchfile", "ask"], ["cp a.txt sub//b2.txt", "ask"],
+  ["cat sub//a.txt", "ask", "allow"], ["ls sub//x", "ask", "allow"], ["cd sub//x", "ask", "allow"], ["rm sub//nosuchfile", "ask", "allow"], ["cp a.txt sub//b2.txt", "ask", "allow"],
   ["echo a//b", "allow"], ["git log --format=%h//x", "allow"], ["grep \"//\" a.txt", "allow"], ["mytool a//b", "allow"], ["mytool sub//x", "allow"],
 ], { note: "a file command asks about the path whatever the rule says; a rule does cover a // that is not a path argument" });
 each("double-slash-rule", "allow Bash(echo a//b)", [["echo a//b", "allow"]]);
@@ -245,7 +248,7 @@ each("double-slash-rule", ["allow Bash(mytool *)", "allow Edit(./out.txt)"], [["
 // du, df, tree, realpath, readlink, dirname, basename and test are read-only and are not looked at that way.
 each("not-path-commands", null, [
   ["du ../x", "allow"], ["du -sh ../x", "allow"], ["tree ../x", "allow"], ["realpath ../x", "allow"], ["readlink -f ../x", "allow"], ["df -h", "allow"], ["du sub/../a.txt", "allow"],
-  ["realpath sub//x", "ask"], ["dirname ../x", "allow"], ["basename ../x", "allow"], ["test -f ../x", "allow"], ["fd x", "allow"], ["tree -o c.txt", "ask"],
+  ["realpath sub//x", "ask", "allow"], ["dirname ../x", "allow"], ["basename ../x", "allow"], ["test -f ../x", "allow"], ["fd x", "allow"], ["tree -o c.txt", "ask"],
   ["fd -x echo hi", "ask"], ["fd --exec echo hi", "ask"], ["fd -X echo hi", "ask"],
 ]);
 for (const prog of ["cat", "head", "tail", "wc", "stat", "file", "strings", "hexdump", "od", "nl", "tac", "rev", "fold", "fmt", "expand", "unexpand", "column", "paste", "comm", "cmp", "diff", "cut", "pr", "md5sum", "sha1sum", "sha256sum", "base64", "tsort", "ls", "sort", "uniq"]) {
@@ -459,12 +462,12 @@ for (const [command, expect] of [
   ["Get-ChildItem ..\\work", "allow"], ["Get-ChildItem .\\sub", "allow"], ["Get-ChildItem .\\sub\\", "allow"], ["Write-Output sub\\..\\a", "allow"],
   ["Get-ChildItem sub//x", "ask"], ["Get-ChildItem sub\\\\x", "ask"], ["Write-Output a//b", "ask"], ["Write-Output 'a//b'", "ask"], ["Get-Date; Write-Output a//b", "ask"],
   ["Get-ChildItem sub//", "allow"], ["Write-Output \"a // b\"", "allow"], ["Write-Output http://x", "allow"],
-]) ps("ps-paths", null, command, expect, { note: "a .. after a directory name in a file cmdlet's path, and a // or \\\\ anywhere in the command, are asked about" });
+]) ps("ps-paths", null, command, expect, { engine: unc(command), note: "a .. after a directory name in a file cmdlet's path, and (on Windows) a // or \\\\ anywhere in the command, are asked about" });
 for (const [rules, command, expect] of [
   ["allow PowerShell(Get-Content *)", "Get-Content sub\\..\\a.txt", "ask"], ["allow PowerShell(Get-ChildItem *)", "Get-ChildItem sub//x", "ask"], ["allow PowerShell(mytool *)", "mytool a//b", "ask"],
   ["allow PowerShell(mytool *)", "mytool sub\\..\\x", "allow"], ["allow PowerShell(mytool *)", "mytool sub/../x", "allow"], ["allow PowerShell(Write-Output *)", "Write-Output a//b", "ask"],
   ["allow PowerShell(Get-Process *)", "Get-Process sub\\..\\x", "allow"],
-]) ps("ps-paths-rule", rules, command, expect);
+]) ps("ps-paths-rule", rules, command, expect, { engine: unc(command) });
 read("read-paths", null, "{WORK}/sub/../a.txt", "allow", { note: "the Read tool normalizes the path" });
 read("read-paths", null, "{WORK}//a.txt", "allow");
 ps("ps-deny", ["allow PowerShell(mytool *)", "deny PowerShell(mytool danger *)"], "mytool danger x", "deny");

@@ -51,7 +51,7 @@ export function suggest({ settings, all = false, days = 90, min = 3, now = Date.
         const memoKey = `${run.tool}::${st.project}::${cwd}::${cmd.text}`;
         let dd = judged.get(memoKey);
         if (!dd) {
-          const full = decideShell({ tool: run.tool, command: cmd.text, settings: st, cwd, home: st.home });
+          const full = decideShell({ tool: run.tool, command: cmd.text, settings: st, cwd, home: st.home, platform: platform || process.platform });
           dd = { verdict: full.verdict, kind: full.kind };
           judged.set(memoKey, dd);
         }

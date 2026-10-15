@@ -152,8 +152,8 @@ function firstPositionalRemoved(args) {
  *            these for the file commands whatever the Bash rules say
  */
 export function readOnly(argv, ctx) {
-  const bad = pathArguments(argv).find((a) => unsafePath(a));
-  if (bad !== undefined) return { ok: false, why: `${argv[0]} ${bad}: the path ${unsafePath(bad)}`, unsafe: bad };
+  const bad = pathArguments(argv).find((a) => unsafePath(a, ctx.platform));
+  if (bad !== undefined) return { ok: false, why: `${argv[0]} ${bad}: the path ${unsafePath(bad, ctx.platform)}`, unsafe: bad };
   return classify(argv, ctx);
 }
 

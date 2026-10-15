@@ -53,7 +53,7 @@ export function fileDeny(cmd, settings, ctx) {
     if (r.heredoc || r.op === "<<<" || !r.target) continue;
     const value = r.target.value;
     if (NO_FILE.has(value) || r.target.dynamic || isDup(r, value)) continue;
-    if (unsafePath(value)) return null; // a path Claude Code asks about: the prompt comes first
+    if (ctx.platform === "win32" && unsafePath(value, ctx.platform)) return null; // on Windows a path Claude Code asks about is asked about before a deny rule judges it
     const tool = OUTPUT_OPS.has(r.op) || r.op === ">&" ? "Edit" : r.op === "<" ? "Read" : null;
     const abs = tool ? resolveArg(value, ctx.cwd, ctx.home) : null;
     if (!abs) continue;
@@ -65,7 +65,7 @@ export function fileDeny(cmd, settings, ctx) {
   const files = fileArguments(words);
   for (const [tool, list] of [["Read", files.reads], ["Edit", files.writes]]) {
     for (const a of list) {
-      if (unsafePath(a)) return null; // a path Claude Code asks about: the prompt comes first
+      if (ctx.platform === "win32" && unsafePath(a, ctx.platform)) return null; // on Windows the prompt comes first, on Linux and macOS the deny rule
       const abs = resolveArg(a, ctx.cwd, ctx.home);
       if (!abs) continue;
       const dec = fileDecision(tool, abs, settings, ctx);
@@ -124,7 +124,7 @@ export function redirectDecision(cmd, settings, ctx) {
     const isOut = OUTPUT_OPS.has(r.op) || (r.op === ">&" && !FD_TARGET.test(target));
     const isIn = r.op === "<";
     if ((!isOut && !isIn) || NO_FILE.has(target)) continue;
-    const reason = unsafePath(target);
+    const reason = unsafePath(target, ctx.platform);
     if (reason) return { behavior: "ask", target, unsafe: true, text: `${isOut ? "its output goes to" : "it reads"} ${target}, which ${reason}` };
     const dynamic = r.target.dynamic || /[*?[\]]/.test(target) || (target.startsWith("~") && !/^~([\\/]|$)/.test(target));
     const abs = dynamic ? null : resolveArg(target, ctx.cwd, ctx.home);

@@ -4,6 +4,9 @@ import path from "node:path";
 import { buildWhy } from "../src/commands.mjs";
 import { prepareCase } from "./oracle-lib.mjs";
 
+/** What Claude Code does with the row on this system: Windows is the default answer, a row may say what Linux and macOS do instead. */
+export const expectedFor = (row, platform = process.platform) => (row.posix && platform !== "win32" ? row.posix : row.expect);
+
 /** The row's tool input as the one string `why` takes: a command, a file or a URL. */
 export const inputOf = (row) => row.input.command ?? row.input.file_path ?? row.input.url;
 
@@ -33,6 +36,7 @@ export function engineRun(row) {
       home: p.home,
       env: { CLAUDE_CONFIG_DIR: p.cfg },
       managed: path.join(p.root, "no-managed-settings"),
+      platform: process.platform,
     });
   } finally {
     try { fs.rmSync(p.root, { recursive: true, force: true }); } catch { /* the OS cleans the temp folder eventually */ }

@@ -99,7 +99,7 @@ export function buildWhy(opts) {
   let decision;
   let kind = "shell";
   if (tool === "Bash" || tool === "PowerShell") {
-    decision = decideShell({ tool, command, settings, cwd: here, home: settings.home });
+    decision = decideShell({ tool, command, settings, cwd: here, home: settings.home, platform: opts.platform || process.platform });
   } else if (tool === "Read" || tool === "Edit" || tool === "Write") {
     kind = "file";
     decision = decideFile({ tool, file: target, settings, cwd: here, home: settings.home });

@@ -36,12 +36,12 @@ export { fileDecision } from "./filechecks.mjs";
  *            no-rule, path (a folder or redirection), cd
  *   parts    one entry per simple command, each with the status it would have on its own
  */
-export function decideShell({ tool, command, settings, cwd, home }) {
+export function decideShell({ tool, command, settings, cwd, home, platform = process.platform }) {
   const ps = tool === "PowerShell";
   const text = String(command).trim();
-  const parsed = ps ? parsePowerShell(command) : parseBash(command);
+  const parsed = ps ? parsePowerShell(command, { unc: platform === "win32" }) : parseBash(command);
   const rules = activeRules(settings, { tool });
-  const ctx = { cwd, home, dirs: [cwd, ...settings.additionalDirectories] };
+  const ctx = { cwd, home, platform, dirs: [cwd, ...settings.additionalDirectories] };
 
   // --- matching helpers -------------------------------------------------------------------------
   const ruleParsed = (r) => {
@@ -83,7 +83,7 @@ export function decideShell({ tool, command, settings, cwd, home }) {
     const inner = innerWords(cmd, ps);
     let ro = inner.ok && cmd.argv.length ? (ps ? readOnlyPs(inner.words, { ...ctx, cwd: here }) : readOnly(inner.words, withRead({ ...ctx, cwd: here }))) : { ok: false, why: inner.why || "" };
     // a // in the text could be a network path: the command is no longer one that is known to only read
-    if (!ps && ro.ok && hasDoubleSlash(cmd.text)) ro = { ok: false, why: "a // inside the command could be a network path, so it does not count as read-only" };
+    if (!ps && platform === "win32" && ro.ok && hasDoubleSlash(cmd.text)) ro = { ok: false, why: "a // inside the command could be a network path, so it does not count as read-only" };
     // [ and jq are read-only, but not with a variable in front (observed)
     if (!ps && ro.ok && cmd.assigns.length && (inner.words[0] === "[" || inner.words[0] === "jq")) ro = { ok: false, why: `${inner.words[0]} with a variable in front is not one Claude Code runs without asking` };
     const hit = exact ? { rule: exact.rule, via: exact.via } : firstHit(rules.allow, cmd, "allow");

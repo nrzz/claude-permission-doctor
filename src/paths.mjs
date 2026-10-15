@@ -61,13 +61,14 @@ export function hasTraversal(arg) {
 
 /**
  * A doubled slash with more text after it (a//b, .//x, //server/share): Windows reads it as a network
- * path. A trailing one (sub//) and the // of a URL (https://x) are fine.
+ * path. A trailing one (sub//) and the // of a URL (https://x) are fine. Claude Code asks about it on
+ * Windows only; on Linux and macOS (checked with 2.1.300) it does not.
  */
 export const hasDoubleSlash = (text) => /(?<!:)\/\/(?=\S)/.test(String(text));
 
 /** Why Claude Code asks about this path argument whatever the rules say, or null. */
-export function unsafePath(arg) {
+export function unsafePath(arg, platform = process.platform) {
   if (hasTraversal(arg)) return "has a .. after a directory name, and Claude Code asks about that whatever the rules say, because it may follow a symlink out of the working folder";
-  if (hasDoubleSlash(arg)) return "has a // inside the path, which could be a network share, and Claude Code asks about that whatever the rules say";
+  if (platform === "win32" && hasDoubleSlash(arg)) return "has a // inside the path, which could be a network share, and Claude Code asks about that whatever the rules say";
   return null;
 }

@@ -5,7 +5,7 @@ import "./helpers.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { rows } from "./oracle-table.mjs";
-import { describeRow, engineRun } from "./table-lib.mjs";
+import { describeRow, engineRun, expectedFor } from "./table-lib.mjs";
 
 test("the table is well formed", () => {
   assert.ok(rows.length >= 40, `${rows.length} rows`);
@@ -13,6 +13,7 @@ test("the table is well formed", () => {
   assert.equal(ids.size, rows.length, "ids are unique");
   for (const r of rows) {
     assert.ok(["allow", "ask", "deny"].includes(r.expect), r.id);
+    assert.ok(!r.posix || ["allow", "ask", "deny"].includes(r.posix), r.id);
     assert.ok(["Bash", "PowerShell", "Read", "Edit", "Write", "WebFetch"].includes(r.tool), r.id);
   }
   const bash = rows.filter((r) => r.tool === "Bash").length;
@@ -23,6 +24,6 @@ for (const row of rows) {
   // a few rows are about how Windows reads a path in a rule: only a Windows machine can answer them
   test(`${row.id} ${describeRow(row)} -> ${row.expect}`, { skip: row.engine && row.engine !== process.platform ? `about ${row.engine} paths` : false }, () => {
     const report = engineRun(row);
-    assert.equal(report.decision.verdict, row.expect, report.decision.summary);
+    assert.equal(report.decision.verdict, expectedFor(row), report.decision.summary);
   });
 }
