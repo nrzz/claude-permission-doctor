@@ -1,0 +1,43 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [20, 22, 24]
+        include:
+          - os: ubuntu-latest
+            node: 18
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+      - run: node --version && git --version
+      - run: npm test
+
+  # The same table of rule-and-command pairs, put to the real Claude Code binary: a fake Messages API on
+  # 127.0.0.1 makes it call one tool per pair, so no model is reached and no token is spent.
+  oracle:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm install -g @anthropic-ai/claude-code
+      - run: claude --version
+      - run: node --test test/oracle.test.mjs
+        env:
+          E2E_CLAUDE: claude

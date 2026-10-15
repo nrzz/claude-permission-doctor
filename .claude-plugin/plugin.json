@@ -1,0 +1,15 @@
+{
+  "name": "permission-doctor",
+  "displayName": "Permission Doctor",
+  "version": "1.0.0",
+  "description": "Explain permission prompts, find dead and shadowed allow, ask and deny rules, and propose rules from the commands that ran without one. One user-only skill: /permission-doctor:check.",
+  "author": { "name": "Naresh Prabu" },
+  "homepage": "https://github.com/nrzz/claude-permission-doctor",
+  "repository": "https://github.com/nrzz/claude-permission-doctor",
+  "documentationUrl": "https://github.com/nrzz/claude-permission-doctor#readme",
+  "supportUrl": "https://github.com/nrzz/claude-permission-doctor/issues",
+  "privacyPolicyUrl": "https://github.com/nrzz/claude-permission-doctor#how-it-works",
+  "termsOfServiceUrl": "https://github.com/nrzz/claude-permission-doctor/blob/main/LICENSE",
+  "license": "MIT",
+  "keywords": ["permissions", "settings", "allowlist", "linter", "security", "claude-code-permissions"]
+}
