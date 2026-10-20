@@ -71,6 +71,9 @@ const bad = [
   [["restore"], /restore needs the settings file/],
   [["lint", "extra"], /lint takes no arguments/],
   [["suggest", "extra"], /suggest takes no arguments/],
+  [["lint", "--fail-on", "invalid"], /--fail-on needs error, warn or note/],
+  [["lint", "--fail-on", "warn", "--fix"], /--fail-on and --fix cannot be combined/],
+  [["show", "--fail-on", "error"], /--fail-on only works with lint/],
 ];
 for (const [argv, pattern] of bad) {
   test(`bad usage: ${JSON.stringify(argv)} exits 2 and says why`, async () => {
@@ -177,6 +180,31 @@ test("lint: findings, summary, --json, --markdown", async () => {
   const md = await cli(s, ["lint", "--markdown"]);
   assert.match(md.out, /^## permission-doctor lint:/);
   assert.match(md.out, /- WARN `duplicate-rule`/);
+});
+
+test("lint --fail-on gates the exit code by finding severity", async () => {
+  const clean = sandbox({ user: perms({ allow: ["Bash(ls *)"] }) });
+  assert.equal((await cli(clean, ["lint", "--fail-on", "error"])).code, 0);
+  assert.equal((await cli(clean, ["lint", "--fail-on", "warn"])).code, 0);
+  assert.equal((await cli(clean, ["lint", "--fail-on", "note"])).code, 0);
+
+  const warnSandbox = sandbox({ user: perms({ allow: ["bash(x)"] }) });
+  assert.equal((await cli(warnSandbox, ["lint"])).code, 0, "without --fail-on exit is 0");
+  assert.equal((await cli(warnSandbox, ["lint", "--fail-on", "error"])).code, 0, "warn does not fail on error");
+  assert.equal((await cli(warnSandbox, ["lint", "--fail-on", "warn"])).code, 1, "warn fails on warn");
+  assert.equal((await cli(warnSandbox, ["lint", "--fail-on", "note"])).code, 1, "note fails on warn");
+
+  const errSandbox = sandbox({ user: "{ not valid json" });
+  assert.equal((await cli(errSandbox, ["lint"])).code, 0, "without --fail-on exit is 0");
+  assert.equal((await cli(errSandbox, ["lint", "--fail-on", "error"])).code, 1, "error fails on error");
+  assert.equal((await cli(errSandbox, ["lint", "--fail-on", "warn"])).code, 1, "error fails on warn");
+  assert.equal((await cli(errSandbox, ["lint", "--fail-on", "note"])).code, 1, "error fails on note");
+
+  const noteSandbox = sandbox({ managed: { allowManagedPermissionRulesOnly: true } });
+  assert.equal((await cli(noteSandbox, ["lint"])).code, 0, "without --fail-on exit is 0");
+  assert.equal((await cli(noteSandbox, ["lint", "--fail-on", "error"])).code, 0, "note does not fail on error");
+  assert.equal((await cli(noteSandbox, ["lint", "--fail-on", "warn"])).code, 0, "note does not fail on warn");
+  assert.equal((await cli(noteSandbox, ["lint", "--fail-on", "note"])).code, 1, "note fails on note");
 });
 
 test("lint --fix --dry-run shows the plan and writes nothing; --fix backs up and edits; restore undoes it", async () => {

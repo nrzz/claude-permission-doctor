@@ -55,7 +55,7 @@ claude-permission-doctor why     "<command>" [--tool Bash|PowerShell] [--project
 claude-permission-doctor why     --tool Read|Edit|Write --path <file> [--project <dir>] [--json]
 claude-permission-doctor why     --tool WebFetch --url <url> [--project <dir>] [--json]
 claude-permission-doctor why     --tool <name> [--project <dir>] [--json]
-claude-permission-doctor lint    [--project <dir>] [--days <n>] [--json] [--markdown] [--fix [--dry-run]]
+claude-permission-doctor lint    [--project <dir>] [--days <n>] [--fail-on error|warn|note] [--json] [--markdown] [--fix [--dry-run]]
 claude-permission-doctor suggest [--project <dir>] [--days <n>] [--min <n>] [--all] [--json] [--markdown] [--write user|project|local [--only 1,2] [--dry-run]]
 claude-permission-doctor restore <settings file> [--json]
 ```
@@ -67,6 +67,7 @@ claude-permission-doctor restore <settings file> [--json]
 | `--days <n>` | How far back `lint` and `suggest` read the transcripts. Default 90 |
 | `--min <n>` | `suggest`: how many times a command must have run before it is proposed. Default 3 |
 | `--all` | `suggest`: read every project's transcripts, each judged against that project's own settings |
+| `--fail-on error\|warn\|note` | `lint`: exit 1 when findings of that severity or worse are present (for CI) |
 | `--fix` | `lint`: remove the dead and duplicate rules from your user and local settings files, after a backup. A repeated entry inside one list of the shared project file goes too; any other copy there, and anything in managed settings, is only reported |
 | `--write user|project|local` | `suggest`: add the proposed allow rules to the `user`, `project` or `local` settings file, after a backup. Rules that approve more than one command (`rm`, `git push`, `node`) are left out unless you pick them with `--only 1,2` (their numbers in the list) |
 | `--dry-run` | With `--fix` or `--write`: print what would change and change nothing |
@@ -74,7 +75,7 @@ claude-permission-doctor restore <settings file> [--json]
 | `--markdown` | `lint` and `suggest`: a short markdown report for the skill |
 | `--no-color` | No colour on a terminal; `NO_COLOR` does the same |
 
-Exit codes: 0 for a normal run, whatever the verdict; 2 for a usage error or a `restore` with nothing to restore. `CLAUDE_CONFIG_DIR` moves Claude's config folder, as it does for Claude Code, and the report says which folder it used. `why` assumes the default (Manual) permission mode.
+Exit codes: 0 for a normal run, 1 for `lint --fail-on` when findings are present; 2 for a usage error or a `restore` with nothing to restore. `CLAUDE_CONFIG_DIR` moves Claude's config folder, as it does for Claude Code, and the report says which folder it used. `why` assumes the default (Manual) permission mode.
 
 ### `show`
 
@@ -228,7 +229,7 @@ NOTE  mixed-syntax               ~/.claude/settings.json:9  [--fix]
 | `dead-rule` | An allow rule for one exact command that ran once or never in the last `--days` days. A rule used once is most likely the approval that created it. Not reported while the file or the one use is under 14 days old, and only for exact rules: a prefix rule is never called dead |
 | `managed-only` | Managed settings set `allowManagedPermissionRulesOnly`, so Claude Code ignores every rule in your own files |
 
-Each finding is an `error`, a `warn` or a `note`. `show` marks the warnings Claude Code itself prints at startup ("Claude Code warns") and the ones it keeps quiet about ("pitfall").
+Each finding is an `error`, a `warn` or a `note`. `show` marks the warnings Claude Code itself prints at startup ("Claude Code warns") and the ones it keeps quiet about ("pitfall"). `--fail-on error|warn|note` lets CI gate on findings: it exits 1 when at least one finding of that severity or worse is present (`warn` fails on error or warn; `note` on any finding). `--fail-on` cannot be combined with `--fix`.
 
 `--fix --dry-run` prints the plan and writes nothing:
 
