@@ -161,6 +161,7 @@ async function askOnce(claude, c0, { timeoutMs = 120000, keep = false, debugFile
   let toolNames = null;
   const server = http.createServer((req, res) => {
     let body = "";
+    req.setEncoding("utf8"); // so a character split across two chunks still decodes
     req.on("data", (d) => { body += d; });
     req.on("end", () => {
       if (!req.url.includes("/v1/messages")) { res.writeHead(404); res.end("{}"); return; }
