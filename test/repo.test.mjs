@@ -47,7 +47,8 @@ test("the plugin manifest matches the package", () => {
 test("one skill, /permission-doctor:check, that only runs this tool", () => {
   const dirs = fs.readdirSync(path.join(ROOT, "skills"));
   assert.deepEqual(dirs, ["check"]);
-  const text = read("skills/check/SKILL.md");
+  // A Windows checkout holds CRLF (the repository may carry no .gitattributes)
+  const text = read("skills/check/SKILL.md").replace(/\r\n/g, "\n");
   const front = /^---\n([\s\S]*?)\n---\n/.exec(text);
   assert.ok(front, "has frontmatter");
   assert.match(front[1], /^name: check$/m);
