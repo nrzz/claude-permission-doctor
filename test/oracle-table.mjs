@@ -105,7 +105,7 @@ each("deny-part", DENY_RM, [
   ["mytool a | rm nothing", "deny"], ["mytool a || rm nothing", "deny"], ["mytool a\nrm nothing", "deny"], ["mytool a & rm nothing", "deny"],
   ["echo $(rm nothing)", "deny"], ["echo `rm nothing`", "deny"], ["(rm nothing)", "deny"], ["{ rm nothing; }", "deny"],
   ["if true; then rm nothing; fi", "deny"], ["for i in 1; do rm nothing; done", "deny"], ["echo ok | (rm nothing)", "deny"],
-  ["rmdir nothing", "ask"], ["/bin/rm nothing", "ask"], ["mytool a", "allow"],
+  ["rmdir nothing", "ask"], ["/bin/rm nothing", "deny"], ["mytool a", "allow"],
 ]);
 each("deny-wrapper", DENY_RM, [
   ["sudo rm nothing", "deny"], ["env rm nothing", "deny"], ["env FOO=1 rm nothing", "deny"], ["timeout 5 rm nothing", "deny"], ["nice rm nothing", "deny"],
@@ -476,3 +476,15 @@ ps("ps-precedence", { user: "deny PowerShell(mytool *)", project: "allow PowerSh
 ps("ps-precedence", { project: "ask PowerShell(mytool *)", local: "allow PowerShell(mytool *)" }, "mytool a", "ask");
 ps("ps-bare", "deny PowerShell", "Get-Date", "deny");
 ps("ps-bare", "ask PowerShell", "Get-Date", "ask");
+
+// --- a program given by its path: from Claude Code 2.1.309 a deny or ask rule also matches it by its name -----------
+// (2.1.308 and older asked about /bin/rm under deny Bash(rm *)); an allow rule still matches the path as written
+const BY_NAME = { note: "from Claude Code 2.1.309 a deny or ask rule also matches a program given by its path by its name; 2.1.308 and older did not" };
+each("deny-path", DENY_RM, [["/usr/bin/rm nothing", "deny"], ["./rm nothing", "deny"], ["mytool a && /bin/rm nothing", "deny"], ["sudo /bin/rm nothing", "deny"]], BY_NAME);
+each("deny-path", "deny Bash(rm)", [["/bin/rm", "deny"]], BY_NAME);
+each("deny-path", "deny Bash(rm:*)", [["/bin/rm nothing", "deny"]], BY_NAME);
+each("deny-path", "deny Bash(cat *)", [["/usr/bin/cat a.txt", "deny"]], BY_NAME);
+each("deny-path", ["allow Bash(mytool *)", "deny Bash(/bin/rm *)"], [["rm nothing", "ask"]], { note: "a rule that names the path does not catch the bare name" });
+each("ask-path", ["allow Bash(/bin/rm *)", "ask Bash(rm *)"], [["/bin/rm nothing", "ask"]], BY_NAME);
+each("allow-path", "allow Bash(rm *)", [["/bin/rm nothing", "ask"]], { note: "an allow rule matches the program as it is written" });
+each("allow-path", "allow Bash(cat *)", [["/usr/bin/cat a.txt", "ask"]], { note: "an allow rule matches the program as it is written" });

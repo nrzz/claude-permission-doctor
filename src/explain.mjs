@@ -42,6 +42,11 @@ export function explainMisses({ tool, allowRules, texts, deepTexts, matchesRule,
     if (hit) {
       const names = d.stripped.map((s) => s.replace(/=$/, "="));
       const isEnv = d.stripped.every((s) => /^[A-Za-z_]\w*=$/.test(s));
+      const dir = d.stripped.find((s) => s.endsWith("/"));
+      if (dir) {
+        out.push(`${show(hit.raw)} would match ${show(d.text)}, but an allow rule matches the program as it is written, with ${show(dir)} in front; deny and ask rules also match its name (Claude Code 2.1.309 and newer)`);
+        break;
+      }
       out.push(isEnv
         ? `${show(hit.raw)} would match without ${names.map(show).join(", ")} in front, but an allow rule does not match past an assignment of a variable that is not on Claude Code's short safe list (deny and ask rules do)`
         : `${show(hit.raw)} would match ${show(d.text)}, but Claude Code does not look through ${names.map((n) => show(n.split(" ")[0])).join(", ")} for allow rules (only timeout, time, nice, nohup, stdbuf, command, builtin and a bare xargs); deny and ask rules do`);

@@ -3,7 +3,8 @@
 // For an allow rule it strips a short built-in list (docs: timeout, time, nice, nohup, stdbuf,
 // command, builtin, noglob, a bare xargs) and a leading VAR=value for a few harmless variables.
 // For a deny or ask rule it looks through more: any leading assignment, and also env, sudo, doas,
-// ionice, setsid, watch, flock, strace and exec (checked: a deny rule for rm catches sudo rm).
+// ionice, setsid, watch, flock, strace and exec (checked: a deny rule for rm catches sudo rm), and
+// from Claude Code 2.1.309 it matches a program given by its path by its name too (/bin/rm as rm).
 // xargs with a flag, npx, bash -c, docker exec and the like are never looked through.
 
 import { textFrom } from "./shell.mjs";
@@ -145,6 +146,15 @@ export function candidates(cmd, behavior) {
     if (head && head.quoted && !head.dynamic && head.value && !/\s/.test(head.value) && i >= cmd.assigns.length && text.startsWith(head.raw)) {
       const plain = `${head.value}${text.slice(head.raw.length)}`.trim();
       if (plain && !out.some((o) => o.text === plain)) out.push({ text: plain, stripped: [...stripped] });
+    }
+    // a program given by its path (/bin/rm, ./rm): a deny or ask rule also matches its name (Claude Code 2.1.309
+    // and newer; 2.1.308 and older matched the path as written, as an allow rule still does)
+    if (deep && head && !head.dynamic && i >= cmd.assigns.length && text.startsWith(head.raw)) {
+      const cut = head.value.lastIndexOf("/");
+      if (cut >= 0 && cut < head.value.length - 1) {
+        const named = `${head.value.slice(cut + 1)}${text.slice(head.raw.length)}`.trim();
+        if (!out.some((o) => o.text === named)) out.push({ text: named, stripped: [...stripped, head.value.slice(0, cut + 1)] });
+      }
     }
   };
   add(0, []);
