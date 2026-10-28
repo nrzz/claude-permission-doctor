@@ -18,9 +18,10 @@ Usage: claude-permission-doctor <command> [options]
   why --tool Read|Edit|Write --path <file>      the same for a file
   why --tool WebFetch --url <url>               the same for a URL
   why --tool <name>                             the same for any other tool (mcp__server__tool, WebSearch ...)
-  lint [--project <dir>] [--days <n>] [--fix] [--dry-run]
-        dead, duplicate, shadowed and ignored rules; --fix removes the dead and duplicate ones from your
-        user and local files after a backup, --dry-run shows the plan only
+  lint [--project <dir>] [--days <n>] [--fail-on error|warn|note] [--fix] [--dry-run]
+        dead, duplicate, shadowed and ignored rules; --fail-on exits 1 when findings of that severity or
+        worse are present; --fix removes the dead and duplicate ones from your user and local files after a
+        backup, --dry-run shows the plan only
   suggest [--project <dir>] [--days <n>] [--min <n>] [--all] [--write user|project|local [--only 1,2]] [--dry-run]
         prefix rules for the shell commands that ran without a rule, from your transcripts
   restore <settings file>
@@ -42,7 +43,7 @@ It reads settings files and transcripts, writes only with --fix or --write (afte
 class UsageError extends Error {}
 
 const COMMANDS = new Set(["show", "why", "lint", "suggest", "restore"]);
-const FLAGS_WITH_VALUE = new Set(["--project", "--tool", "--path", "--url", "--days", "--min", "--write", "--only"]);
+const FLAGS_WITH_VALUE = new Set(["--project", "--tool", "--path", "--url", "--days", "--min", "--write", "--only", "--fail-on"]);
 const FLAGS = new Set([...FLAGS_WITH_VALUE, "--json", "--markdown", "--fix", "--dry-run", "--all", "--no-color", "-h", "--help", "-v", "--version"]);
 
 const toolName = (t) => {
@@ -52,7 +53,7 @@ const toolName = (t) => {
 
 /** Parse argv into { command, args, flags }. */
 export function parseArgs(argv) {
-  const o = { command: null, positional: [], project: null, tool: null, path: null, url: null, days: 90, min: 3, write: null, only: null, json: false, markdown: false, fix: false, dryRun: false, all: false, help: false, version: false, noColor: false };
+  const o = { command: null, positional: [], project: null, tool: null, path: null, url: null, days: 90, min: 3, write: null, only: null, failOn: null, json: false, markdown: false, fix: false, dryRun: false, all: false, help: false, version: false, noColor: false };
   const int = (name, v, lo) => {
     if (!/^\d+$/.test(String(v ?? "")) || Number(v) < lo) throw new UsageError(`${name} needs a whole number of at least ${lo}, such as ${name} ${lo === 0 ? 30 : lo}`);
     return Number(v);
@@ -75,6 +76,10 @@ export function parseArgs(argv) {
         case "--url": o.url = value; break;
         case "--days": o.days = int("--days", value, 1); break;
         case "--min": o.min = int("--min", value, 1); break;
+        case "--fail-on":
+          if (!["error", "warn", "note"].includes(value)) throw new UsageError("--fail-on needs error, warn or note");
+          o.failOn = value;
+          break;
         case "--write":
           if (!["user", "project", "local"].includes(value)) throw new UsageError("--write needs user, project or local");
           o.write = value;
@@ -134,6 +139,7 @@ export async function main(argv, io = {}) {
   const emit = (model, text) => stdout.write(o.json ? `${JSON.stringify(strip(model), null, 2)}\n` : text);
 
   try {
+    if (o.failOn && o.command !== "lint") throw new UsageError("--fail-on only works with lint");
     switch (o.command) {
       case "show": {
         if (o.positional.length) throw new UsageError(`show takes no arguments (got "${o.positional[0]}")`);
@@ -164,6 +170,7 @@ export async function main(argv, io = {}) {
       case "lint": {
         if (o.positional.length) throw new UsageError(`lint takes no arguments (got "${o.positional[0]}")`);
         if (o.dryRun && !o.fix) throw new UsageError("--dry-run only works together with --fix");
+        if (o.failOn && o.fix) throw new UsageError("--fail-on and --fix cannot be combined");
         const m = buildLint({ ...common, days: o.days, now });
         let fixed = null;
         if (o.fix) {
@@ -172,6 +179,13 @@ export async function main(argv, io = {}) {
         if (o.json) stdout.write(`${JSON.stringify(strip({ ...m, fix: fixed }), null, 2)}\n`);
         else if (o.markdown) stdout.write(markdownLint(m));
         else stdout.write(renderLint(m, { color, fixed }));
+        if (o.failOn) {
+          const fail =
+            (o.failOn === "error" && m.summary.error > 0) ||
+            (o.failOn === "warn" && (m.summary.error > 0 || m.summary.warn > 0)) ||
+            (o.failOn === "note" && (m.summary.error > 0 || m.summary.warn > 0 || m.summary.note > 0));
+          if (fail) return 1;
+        }
         return 0;
       }
       case "suggest": {

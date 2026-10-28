@@ -2,6 +2,10 @@
 
 All notable changes to claude-permission-doctor are written here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+- `lint`: `--fail-on error|warn|note` exits 1 when findings of that severity or worse are present.
+
 ## [1.0.1] - 2026-10-28
 
 - `why`, `lint` and `suggest` follow Claude Code 2.1.309 and newer: a deny or ask rule also matches a program given by its path by its name. `Bash(rm *)` now refuses `/bin/rm x`, `/usr/bin/rm x` and `./rm x`, also behind `sudo` and in a compound line, where 2.1.308 and older asked about them (bisected with 2.1.302, 2.1.307, 2.1.308, 2.1.309, 2.1.310, 2.1.311 and 2.1.312). An allow rule still matches the path as written, and a rule that names the path (`Bash(/bin/rm *)`) does not catch `rm x`. When an allow rule misses only because of the path, `why` says so. The oracle's table holds 11 new rows for it, and its row for `/bin/rm nothing` under `deny Bash(rm *)` now expects deny; CI's oracle had turned red on it with 2.1.312.

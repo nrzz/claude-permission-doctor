@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { parseArgs } from "../src/cli.mjs";
 import { VERSION } from "../src/version.mjs";
 
-const read = (rel) => fs.readFileSync(path.join(ROOT, rel), "utf8");
+const read = (rel) => fs.readFileSync(path.join(ROOT, rel), "utf8").replace(/\r\n/g, "\n");
 const json = (rel) => JSON.parse(read(rel));
 const files = (dir, ext) => fs.readdirSync(path.join(ROOT, dir)).filter((n) => n.endsWith(ext)).map((n) => path.join(dir, n));
 
