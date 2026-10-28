@@ -1,7 +1,7 @@
 {
   "name": "permission-doctor",
   "displayName": "Permission Doctor",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Explain permission prompts, find dead and shadowed allow, ask and deny rules, and propose rules from the commands that ran without one. One user-only skill: /permission-doctor:check.",
   "author": { "name": "Naresh Prabu" },
   "homepage": "https://github.com/nrzz/claude-permission-doctor",
