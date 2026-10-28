@@ -83,7 +83,7 @@ A real run on the fixture used in this README (a user file, a project file and a
 
 ```text
 $ claude-permission-doctor show
-claude-permission-doctor 1.0.1  the permission rules that apply
+claude-permission-doctor 1.1.0  the permission rules that apply
 project   ~/work/shop
 config    ~/.claude  (from CLAUDE_CONFIG_DIR)
 
@@ -129,7 +129,7 @@ Not read by this tool:
 
 ```text
 $ claude-permission-doctor why "npm test && git push origin main"
-claude-permission-doctor 1.0.1  why this Bash command prompts
+claude-permission-doctor 1.1.0  why this Bash command prompts
 command   npm test && git push origin main
 tool      Bash
 project   ~/work/shop
@@ -178,7 +178,7 @@ $ claude-permission-doctor why --tool WebFetch --url https://docs.example.com/pa
 
 ```text
 $ claude-permission-doctor lint
-claude-permission-doctor 1.0.1  the permission rules, checked
+claude-permission-doctor 1.1.0  the permission rules, checked
 project   ~/work/shop
 config    ~/.claude  (from CLAUDE_CONFIG_DIR)
 checked   3 settings files; 122 shell commands from 1 transcript in the last 90 days
@@ -251,7 +251,7 @@ Without `--dry-run`, each file is copied to `<file>.bak-permission-doctor-<times
 
 ```text
 $ claude-permission-doctor suggest
-claude-permission-doctor 1.0.1  rules for the commands that ran without one
+claude-permission-doctor 1.1.0  rules for the commands that ran without one
 project   ~/work/shop
 window    the last 90 days (since 2026-07-17); 122 shell commands in 1 transcript
 
@@ -320,7 +320,7 @@ What it assumes about Claude Code is in "What was verified" below, with how each
 
 Checked on 2026-10-15 on Windows 11 with Node 24.19.0, git 2.55 and Claude Code 2.1.295. CI runs the unit tests on Linux, macOS and Windows with Node 20, 22 and 24 and on Linux with Node 18, and the oracle on Linux and macOS against the npm release of Claude Code; the badge at the top shows the latest run. All 12 jobs passed on the first green run, on 2026-10-15.
 
-- **1,981 automated tests** (`npm test`, Node's own runner, no dependencies, about 15 seconds; on Node 20 and newer `node --test` also reports each of the six helper files under `test/` as a passing test, which is not counted here). 1,892 passed here; 88 are the oracle's and run only when `E2E_CLAUDE` names a Claude Code binary, and one (a symlink test) is skipped on Windows. They cover the rule parser and the matching forms, the Bash reader (separators, quotes, substitutions, subshells, loops, heredocs, redirections) and the PowerShell reader, the wrappers, the read-only list, the path rules, the settings loader (precedence, drop-in folders, git roots and worktrees, files of the wrong shape or not JSON), the decision and its explanations, `lint`, `suggest`, the transcript reader, the writing code (backups, formatting, symlinks, restore), the command line (every usage error), the report sizes, the package files, and random input.
+- **1,985 automated tests** (`npm test`, Node's own runner, no dependencies, about 15 seconds; on Node 20 and newer `node --test` also reports each of the six helper files under `test/` as a passing test, which is not counted here). 1,896 passed here; 88 are the oracle's and run only when `E2E_CLAUDE` names a Claude Code binary, and one (a symlink test) is skipped on Windows. They cover the rule parser and the matching forms, the Bash reader (separators, quotes, substitutions, subshells, loops, heredocs, redirections) and the PowerShell reader, the wrappers, the read-only list, the path rules, the settings loader (precedence, drop-in folders, git roots and worktrees, files of the wrong shape or not JSON), the decision and its explanations, `lint`, `suggest`, the transcript reader, the writing code (backups, formatting, symlinks, restore), the command line (every usage error), the report sizes, the package files, and random input.
 - **The oracle: 1,077 pairs put to the real Claude Code binary on Windows, and all agree.** `test/oracle.test.mjs` starts a fake Messages API on 127.0.0.1, makes the real binary (`claude -p --permission-mode default`) call one tool with the input of a row of `test/oracle-table.mjs`, and reads whether the call ran, was refused by a rule or needed approval (the refusal shows up under `permission_denials`). No model is reached, no token is spent, and every run has its own throwaway `HOME`, `USERPROFILE` and `CLAUDE_CONFIG_DIR` and its own working folder. The test fails on any row where the binary and `why` disagree. The 980 rows (755 Bash, 101 Read, 12 Edit, 7 Write, 14 WebFetch, 91 PowerShell) cover: allow rules as exact, prefix (`:*`), wildcard (leading, middle, trailing, escaped); compound commands with each separator and an operator with nothing after it; deny and ask rules against every part, inside substitutions, subshells and loops, and behind each wrapper; the wrappers an allow rule looks through and the 39 environment variables it tolerates, one at a time; substitutions, variables and quoting; the read-only commands and their flags; folders, `--add-dir` and Read rules; `cd`; redirections; rules Claude Code skips; bare tool rules; Read, Edit, Write and WebFetch rules; and PowerShell (91 rows, Windows only). The same 97 rule strings that Claude Code validates are checked against `claude doctor` (which lists the skipped ones) and the startup debug log (which holds the warnings). In CI the oracle also runs on Linux and macOS, against the npm release of Claude Code (2.1.300 on the first green run): the 883 rows that can run there (the PowerShell rows and six Windows path rows cannot) and the 97 rule strings, 980 pairs, agree there too; 30 rows have a different answer on Linux and macOS, which the table records. **Re-run on 2026-10-28 with Claude Code 2.1.312**, after 11 rows were added for the path rule below: in CI on Linux and macOS all 991 pairs agree; on Windows 1,085 of 1,088 agree. The three that do not are Windows-only and are not a new version's doing: a file named in Git Bash form (`/c/Users/...`) inside an `additionalDirectories` folder (`cat`, `ls`) or a folder a `Read(//c/...)` allow rule covers asks, where the table and `why` say it runs. They agreed on 2026-10-15, and today 2.1.295, 2.1.299, 2.1.302, 2.1.308, 2.1.309 and 2.1.312 all ask on this machine, also with the Claude Code variables of the calling session removed; the same file named in Windows form (`"C:\Users\..."`) runs with every one of them. The cause is open ([#3](https://github.com/nrzz/claude-permission-doctor/issues/3)), so `why` is unchanged for them.
 - **Precedence.** A user deny rule beats a project allow rule (and the project allow rule alone allows it); a local allow rule does not outrank a project ask rule (and alone it allows); a user ask rule beats a project allow rule, a local deny a user allow, a project deny a user ask, and a rule in one file covers a part of a command and a rule in another file the other part. The same for Read rules.
 - **Random pairs.** Besides the table, two batches of 1,200 random rule-and-command pairs each (from a generator that is not part of this repository: one to three allow rules, sometimes a deny or an ask rule, and a command built from about 120 shapes with wrappers, separators, substitutions, loops and redirections) were run through the binary and `why`. The first agreed on 1,197, the second, with another seed and after the fixes the first one led to, on 1,198. Every disagreement is now a row of the table and is fixed.

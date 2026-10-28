@@ -4,7 +4,11 @@ All notable changes to claude-permission-doctor are written here. The format fol
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-28
+
 - `lint`: `--fail-on error|warn|note` exits 1 when findings of that severity or worse are present.
+- Contributed by [@yoreva-01](https://github.com/yoreva-01) in [#2](https://github.com/nrzz/claude-permission-doctor/pull/2), for the good first issue [#1](https://github.com/nrzz/claude-permission-doctor/issues/1).
+- The README's test count is the runner's again: 1,985 automated tests (1,991 with the 6 helper files), 1,896 passed on Windows without a binary. It had said 1,981 before the pull request's four tests.
 
 ## [1.0.1] - 2026-10-28
 
@@ -19,5 +23,6 @@ All notable changes to claude-permission-doctor are written here. The format fol
 - A plugin with one user-only skill, `/permission-doctor:check`.
 - Every verdict was put to Claude Code 2.1.295 through its own binary: a table of rule-and-command pairs is run against it by `test/oracle.test.mjs` (CI runs it on Linux and macOS with the npm package). Where the binary and the docs differ, the binary was followed and the README says where.
 
+[1.1.0]: https://github.com/nrzz/claude-permission-doctor/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/nrzz/claude-permission-doctor/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/nrzz/claude-permission-doctor/releases/tag/v1.0.0
